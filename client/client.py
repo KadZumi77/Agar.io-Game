@@ -4,15 +4,6 @@ import pygame
 WIDTH_WINDOW,HEIGHT_WINDOW=800,700
 colors = {'0': (255, 255, 0), '1': (255, 0, 0), '2': (0, 255, 0), '3': (0, 0, 255), '4': (128, 0, 128)}
 
-def draw_opponents(data):
-    for i in range(len(data)):
-        j=data[i].split(' ')
-
-        x=WIDTH_WINDOW//2+int(j[0])
-        y = HEIGHT_WINDOW // 2 + int(j[1])
-        r=int(j[2])
-        c=colors[j[3]]
-        pygame.draw.circle(screen,c,(x,y),r)
 
 def find(s):
     otkr = None
@@ -25,12 +16,23 @@ def find(s):
             return res
     return ''
 
+def draw_opponents(data):
+    for i in range(len(data)):
+        j=data[i].split(' ')
+
+        x=WIDTH_WINDOW//2+int(j[0])
+        y = HEIGHT_WINDOW // 2 + int(j[1])
+        r=int(j[2])
+        c=colors[j[3]]
+        pygame.draw.circle(screen,c,(x,y),r)
+
+
 #подключаемся к серверу
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 sock.connect(('localhost', 10000))
 
-my_color=sock.recv(16).decode()
+my_color=sock.recv(32).decode()
 
 #создание окна игры
 pygame.init()
@@ -61,7 +63,12 @@ while running:
         sock.send(message.encode())
 
     # получаем от сервера новое состояние игрового поля
-    data = sock.recv(2**20)
+    try:
+        data = sock.recv(2**20)
+    except:
+        running=False
+        continue
+    #data = sock.recv(2 ** 20)
     data = data.decode()
     data=find(data)
     data=data.split(',')
