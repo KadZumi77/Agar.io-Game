@@ -32,13 +32,23 @@ class Player():
         self.r = r
         self.color = color
 
+        self.w_vision = 800
+        self.h_vision = 700
         self.errors = 0
 
-        self.speed_x = 5
-        self.speed_y = 2
+        self.abs_speed = 3
+        self.speed_x = 0
+        self.speed_y = 0
 
     def change_speed(self, v):
-        pass
+        if (v[0] == 0) and (x[1] == 0):
+            self.speed_x = 0
+            self.speed_y = 0
+        else:
+            lenv = (v[0] ** 2 + v[1] ** 2) ** 0.5
+            v = (v[0] / lenv, v[1] / lenv)
+            v = (v[0] * self.abs_speed, v[1] * self.abs_speed)
+            self.speed_x, self.speed_y = v[0], v[1]
 
     def update(self):
         self.x += self.speed_x
@@ -70,6 +80,7 @@ while server_works:
                             random.randint(0, WIDTH_ROOM),
                             random.randint(0, HEIGHT_ROOM),
                             START_PLAYER_SIZE, str(random.randint(0, 4)))
+        new_player.connection.send(new_player.color.encode())
         players.append(new_player)
     except:
         # print('Нет желающих войти в игру')
@@ -81,18 +92,54 @@ while server_works:
             data = player.connection.recv(1024)
             data = data.decode()
             data = find(data)
+            # обрабатываем команды
             player.change_speed(data)
         except:
             pass
         player.update()
 
+    # определим, что видит каждыцй игрок
+    visible_balls = [[] for i in range(len(players))]
+    for i in range(len(players)):
+        for j in range(i + 1, len(players)):
+            # рассматриваем пару i и j игрока
+            dist_x = players[j].x - players[i].x
+            dist_y = players[j].y - players[i].y
+
+            # i видит j
+            if ((abs(dist_x) <= (players[i].w_vision) // 2 + players[j].r)
+                    and (abs(dist_y) <= (players[i].h_vision) // 2 + players[j].r)):
+                # подготовим данные к добавлению в список видимых шаров
+                x_ = str(round(dist_x))
+                y_ = str(round(dist_y))
+                r_ = str(round(players[j].r))
+                c_ = players[j].color
+
+                visible_balls[i].append(x_ + ' ' + y_ + ' ' + r_ + ' ' + c_)
+
+            #j видит i
+            if ((abs(dist_x) <= (players[j].w_vision) // 2 + players[i].r)
+                    and (abs(dist_y) <= (players[j].h_vision) // 2 + players[i].r)):
+                # подготовим данные к добавлению в список видимых шаров
+                x_ = str(round(-dist_x))
+                y_ = str(round(-dist_y))
+                r_ = str(round(players[i].r))
+                c_ = players[i].color
+
+                visible_balls[j].append(x_ + ' ' + y_ + ' ' + r_ + ' ' + c_)
+
+    #формируем ответ каждому игроку
+    otvets=['' for i in range(len(players))]
+    for i in range(len(players)):
+        otvets[i]='<'+(','.join(visible_balls[i]))+'>'
+
     # отправляем новое состояние игрового поля
-    for player in players:
+    for i in range(len(players)):
         try:
-            player.connection.send('Новое состояние игры'.encode())
-            player.errors = 0
+            players[i].connection.send(otvets[i].encode())
+            players[i].errors = 0
         except:
-            player.errors += 1
+            players[i].errors += 1
             # print('Отключился игрок')
     # time.sleep(0.01)
 
