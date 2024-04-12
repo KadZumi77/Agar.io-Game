@@ -52,11 +52,13 @@ class Player():
         self.color = color
         self.L = 1
 
+        self.width_window = 900
+        self.height_window = 800
         self.w_vision = 900
         self.h_vision = 800
         self.errors = 0
 
-        self.abs_speed = 5
+        self.abs_speed = 30 / (self.r ** 0.5)
         self.speed_x = 0
         self.speed_y = 0
 
@@ -92,6 +94,28 @@ class Player():
                     self.y += self.speed_y
             else:
                 self.y += self.speed_y
+
+        # abs_speed
+        if self.r != 0:
+            self.abs_speed = 20 / (self.r ** 0.5)
+        else:
+            self.abs_speed = 0
+
+        # r
+        if self.r >= 100:
+            self.r -= self.r / 18000
+
+        # L
+        if (self.r >= self.w_vision / 4) or (self.r >= self.h_vision / 4):
+            if (self.w_vision <= WIDTH_ROOM) or (self.h_vision <= HEIGHT_ROOM):
+                self.L *= 2
+                self.w_vision = self.width_window * self.L
+                self.h_vision = self.height_window * self.L
+        if (self.r < self.w_vision / 8) and (self.r < self.h_vision / 8):
+            if self.L > 1:
+                self.L = self.L // 2
+                self.w_vision = self.width_window * self.L
+                self.h_vision = self.height_window * self.L
 
 
 # создание сокета
@@ -136,12 +160,34 @@ while server_works:
                                 random.randint(0, WIDTH_ROOM),
                                 random.randint(0, HEIGHT_ROOM),
                                 START_PLAYER_SIZE, str(random.randint(0, 4)))
-            message=str(new_player.r)+' '+new_player.color
+            message = str(new_player.r) + ' ' + new_player.color
             new_player.connection.send(message.encode())
             players.append(new_player)
         except:
             # print('Нет желающих войти в игру')
             pass
+        # дополняем список мобов
+        for i in range(MOBS_QUANTITY - len(players)):
+            if len(microbes) != 0:
+                spawn = random.choice(microbes)
+                players.append(Player(None, None,
+                                      spawn.x,
+                                      spawn.y,
+                                      random.randint(10, 100),
+                                      str(random.randint(0, 4))
+                                      )
+                               )
+                microbes.remove(spawn)
+
+        # дополняем список микробов
+        new_microbes = [Microbe(random.randint(0, WIDTH_ROOM),
+                                random.randint(0, HEIGHT_ROOM),
+                                MICROBE_SIZE,
+                                str(random.randint(0, 4)))
+                        for i in range(MICROBES_QUANTITY - len(microbes))
+                        ]
+
+        microbes = microbes + new_microbes
 
     # считываем команды игроков
     for player in players:
@@ -180,9 +226,9 @@ while server_works:
 
                 if (players[i].connection != None) and (microbes[k].r != 0):
                     # подготовим данные к добавлению в список видимых шаров
-                    x_ = str(round(dist_x))
-                    y_ = str(round(dist_y))
-                    r_ = str(round(microbes[k].r))
+                    x_ = str(round(dist_x / players[i].L))
+                    y_ = str(round(dist_y / players[i].L))
+                    r_ = str(round(microbes[k].r / players[i].L))
                     c_ = microbes[k].color
 
                     visible_balls[i].append(x_ + ' ' + y_ + ' ' + r_ + ' ' + c_)
@@ -204,9 +250,9 @@ while server_works:
 
                 if players[i].connection != None:
                     # подготовим данные к добавлению в список видимых шаров
-                    x_ = str(round(dist_x))
-                    y_ = str(round(dist_y))
-                    r_ = str(round(players[j].r))
+                    x_ = str(round(dist_x / players[i].L))
+                    y_ = str(round(dist_y / players[i].L))
+                    r_ = str(round(players[j].r / players[i].L))
                     c_ = players[j].color
 
                     visible_balls[i].append(x_ + ' ' + y_ + ' ' + r_ + ' ' + c_)
@@ -222,9 +268,9 @@ while server_works:
 
                 if players[j].connection != None:
                     # подготовим данные к добавлению в список видимых шаров
-                    x_ = str(round(-dist_x))
-                    y_ = str(round(-dist_y))
-                    r_ = str(round(players[i].r))
+                    x_ = str(round(-dist_x / players[j].L))
+                    y_ = str(round(-dist_y / players[j].L))
+                    r_ = str(round(players[i].r / players[j].L))
                     c_ = players[i].color
 
                     visible_balls[j].append(x_ + ' ' + y_ + ' ' + r_ + ' ' + c_)
@@ -233,9 +279,9 @@ while server_works:
     otvets = ['' for i in range(len(players))]
     for i in range(len(players)):
         r_ = str(round(players[i].r))
-        #x_ = str(round(players[i].x ))
-        #y_ = str(round(players[i].y / players[i].L))
-        #L_ = str(players[i].L)
+        # x_ = str(round(players[i].x ))
+        # y_ = str(round(players[i].y / players[i].L))
+        # L_ = str(players[i].L)
 
         visible_balls[i] = [r_] + visible_balls[i]
         otvets[i] = '<' + (','.join(visible_balls[i])) + '>'

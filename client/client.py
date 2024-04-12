@@ -1,7 +1,7 @@
 import socket
 import pygame
 
-WIDTH_WINDOW, HEIGHT_WINDOW = 900, 800
+WIDTH_WINDOW, HEIGHT_WINDOW = 1500, 900
 colors = {'0': (255, 255, 0), '1': (255, 0, 0), '2': (0, 255, 0), '3': (0, 0, 255), '4': (128, 0, 128)}
 
 
