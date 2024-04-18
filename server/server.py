@@ -1,24 +1,56 @@
 import socket
+import sys
 import time
 import pygame
 import random
 
+from PyQt5.QtGui import QFont
+from PyQt5.QtWidgets import QWidget, QDialog, QVBoxLayout, QLabel, QPushButton, QApplication
+
+work_on_server = False
+server_ip = 'localhost'
+# server_ip = '123.123.123.123'
+
+FPS = 100
 WIDTH_ROOM, HEIGHT_ROOM = 4000, 4000
 WIDTH_SERVER_WINDOW, HEIGHT_SERVER_WINDOW = 300, 300
-FPS = 100
+
 START_PLAYER_SIZE = 50
+MICROBE_SIZE = 15
 
 MOBS_QUANTITY = 25
-MICROBE_SIZE = 15
-MICROBES_QUANTITY = (WIDTH_ROOM * HEIGHT_ROOM) // 60000
+MICROBES_QUANTITY = (WIDTH_ROOM * HEIGHT_ROOM) // 80000
 
-colors = {'0': (255, 255, 0), '1': (255, 0, 0), '2': (0, 255, 0), '3': (0, 0, 255), '4': (128, 0, 128)}
-
-v = (0, 0)
+colours = {'0': (255, 255, 0), '1': (255, 0, 0), '2': (0, 255, 0), '3': (0, 255, 255), '4': (128, 0, 128)}
 
 
 def new_r(R, r):
     return (R ** 2 + r ** 2) ** 0.5
+
+
+class WindowLose(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        # self.game = Game()
+
+    def show_lose_dialog(self):
+        lose_dialog = QDialog(self)
+        lose_dialog.setMinimumSize(200, 100)
+        lose_dialog.setFocus()
+
+        lose_dialog.setWindowTitle("Losing")
+        layout = QVBoxLayout()
+        lose_dialog.setLayout(layout)
+        lose_label = QLabel("Ой-ой, кажется тебя съели(")
+        lose_label.setFont(QFont('Arial', 20))
+        layout.addWidget(lose_label)
+        ok_button = QPushButton("Выход")
+        ok_button.setFont(QFont('Arial', 10))
+        ok_button.clicked.connect(lose_dialog.close)
+        layout.addWidget(ok_button)
+        lose_dialog.exec_()
+        sys.exit()
 
 
 def find(s):
@@ -43,24 +75,35 @@ class Microbe():
 
 
 class Player():
-    def __init__(self, connection, addres, x, y, r, color):
-        self.connection = connection
-        self.addres = addres
+    def __init__(self, conn, addr, x, y, r, color):
+        self.conn = conn
+        self.addr = addr
         self.x = x
         self.y = y
         self.r = r
         self.color = color
         self.L = 1
 
-        self.width_window = 900
+        self.name = 'Mob'
+        self.width_window = 1000
         self.height_window = 800
-        self.w_vision = 900
+        self.w_vision = 1000
         self.h_vision = 800
-        self.errors = 0
 
-        self.abs_speed = 30 / (self.r ** 0.5)
+        self.errors = 0
+        self.dead = 0
+        self.ready = False
+        self.abs_speed = 25 / (self.r ** 0.5)
         self.speed_x = 0
         self.speed_y = 0
+
+    def set_options(self, data):
+        data = data[1:-1].split(' ')
+        self.name = data[0]
+        self.width_window = int(data[1])
+        self.height_window = int(data[2])
+        self.w_vision = int(data[1])
+        self.h_vision = int(data[2])
 
     def change_speed(self, v):
         if (v[0] == 0) and (v[1] == 0):
@@ -97,13 +140,13 @@ class Player():
 
         # abs_speed
         if self.r != 0:
-            self.abs_speed = 20 / (self.r ** 0.5)
+            self.abs_speed = 40 / (self.r ** 0.5)
         else:
             self.abs_speed = 0
 
         # r
         if self.r >= 100:
-            self.r -= self.r / 18000
+            self.r -= self.r / 10000
 
         # L
         if (self.r >= self.w_vision / 4) or (self.r >= self.h_vision / 4):
@@ -121,50 +164,55 @@ class Player():
 # создание сокета
 main_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 main_socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-main_socket.bind(('localhost', 10000))
+main_socket.bind((server_ip, 10000))
 main_socket.setblocking(0)
 main_socket.listen(5)
 
 # создание графического окна сервера
 pygame.init()
-screen = pygame.display.set_mode((WIDTH_SERVER_WINDOW, HEIGHT_SERVER_WINDOW))
+if not work_on_server:
+    screen = pygame.display.set_mode((WIDTH_SERVER_WINDOW, HEIGHT_SERVER_WINDOW))
 clock = pygame.time.Clock()
 
-# создание набора мобов
+# создание стартового набора мобов
 players = [Player(None, None,
                   random.randint(0, WIDTH_ROOM),
                   random.randint(0, HEIGHT_ROOM),
                   random.randint(10, 100),
-                  str(random.randint(0, 4)))
+                  str(random.randint(0, 4))
+                  )
            for i in range(MOBS_QUANTITY)]
-# создание набора микробов
+
+# создание стартового набора микробов
 microbes = [Microbe(random.randint(0, WIDTH_ROOM),
                     random.randint(0, HEIGHT_ROOM),
                     MICROBE_SIZE,
                     str(random.randint(0, 4)))
             for i in range(MICROBES_QUANTITY)]
-
 tick = -1
 server_works = True
 while server_works:
     tick += 1
     clock.tick(FPS)
-    if tick == 150:
+    if tick == 200:
         tick = 0
-        # проверяем, есть ли желающие войти в игру
+        # проверим, есть ли желающие войти в игру
         try:
-            new_socket, addres = main_socket.accept()
-            print('Подключился', addres)
+            new_socket, addr = main_socket.accept()
+            print('Connected')
             new_socket.setblocking(0)
-            new_player = Player(new_socket, addres,
-                                random.randint(0, WIDTH_ROOM),
-                                random.randint(0, HEIGHT_ROOM),
-                                START_PLAYER_SIZE, str(random.randint(0, 4)))
-            message = str(new_player.r) + ' ' + new_player.color
-            new_player.connection.send(message.encode())
+
+            spawn = random.choice(microbes)
+            new_player = Player(new_socket, addr,
+                                spawn.x,
+                                spawn.y,
+                                START_PLAYER_SIZE,
+                                str(random.randint(0, 4)))
+
+            microbes.remove(spawn)
             players.append(new_player)
+
         except:
-            # print('Нет желающих войти в игру')
             pass
         # дополняем список мобов
         for i in range(MOBS_QUANTITY - len(players)):
@@ -191,24 +239,32 @@ while server_works:
 
     # считываем команды игроков
     for player in players:
-        if player.connection != None:
+        if player.conn != None:
             try:
-                data = player.connection.recv(1024)
+                data = player.conn.recv(1024)
                 data = data.decode()
-                data = find(data)
-                # обрабатываем команды
-                player.change_speed(data)
+
+                if data[0] == '!':  # пришло сообщение о готовности к диалогу
+                    player.ready = True
+                else:
+                    if data[0] == '.' and data[-1] == '.':  # пришло имя и размер окна игрока
+                        player.set_options(data)
+                        player.conn.send((str(START_PLAYER_SIZE) + ' ' + player.color).encode())
+                    else:  # пришел курсор
+                        data = find(data)
+                        player.change_speed(data)
             except:
                 pass
-
         else:
             if tick == 100:
                 data = [random.randint(-100, 100), random.randint(-100, 100)]
                 player.change_speed(data)
+
         player.update()
 
-    # определим, что видит каждыцй игрок
+    # определим, что видит каждый игрок
     visible_balls = [[] for i in range(len(players))]
+
     for i in range(len(players)):
         # каких микробов видит i игрок
         for k in range(len(microbes)):
@@ -216,15 +272,17 @@ while server_works:
             dist_y = microbes[k].y - players[i].y
 
             # i видит k
-            if ((abs(dist_x) <= (players[i].w_vision) // 2 + microbes[k].r)
+            if (
+                    (abs(dist_x) <= (players[i].w_vision) // 2 + microbes[k].r)
                     and
-                    (abs(dist_y) <= (players[i].h_vision) // 2 + microbes[k].r)):
+                    (abs(dist_y) <= (players[i].h_vision) // 2 + microbes[k].r)
+            ):
                 # i может съесть k
                 if (dist_x ** 2 + dist_y ** 2) ** 0.5 <= players[i].r:
                     players[i].r = new_r(players[i].r, microbes[k].r)
                     microbes[k].r = 0
 
-                if (players[i].connection != None) and (microbes[k].r != 0):
+                if (players[i].conn != None) and (microbes[k].r != 0):
                     # подготовим данные к добавлению в список видимых шаров
                     x_ = str(round(dist_x / players[i].L))
                     y_ = str(round(dist_y / players[i].L))
@@ -239,69 +297,86 @@ while server_works:
             dist_y = players[j].y - players[i].y
 
             # i видит j
-            if ((abs(dist_x) <= (players[i].w_vision) // 2 + players[j].r)
-                    and (abs(dist_y) <= (players[i].h_vision) // 2 + players[j].r)):
-
+            if (
+                    (abs(dist_x) <= (players[i].w_vision) // 2 + players[j].r)
+                    and
+                    (abs(dist_y) <= (players[i].h_vision) // 2 + players[j].r)
+            ):
                 # i может съесть j
                 if ((dist_x ** 2 + dist_y ** 2) ** 0.5 <= players[i].r and
                         players[i].r > 1.1 * players[j].r):
                     players[i].r = new_r(players[i].r, players[j].r)
-                    players[j].r, players[j].speed_x, players[j].speed_y = 0, 0, 0  # изменим радиус i игрока
+                    players[j].r, players[j].speed_x, players[j].speed_y = 0, 0, 0
 
-                if players[i].connection != None:
+                if players[i].conn != None:
                     # подготовим данные к добавлению в список видимых шаров
                     x_ = str(round(dist_x / players[i].L))
                     y_ = str(round(dist_y / players[i].L))
                     r_ = str(round(players[j].r / players[i].L))
                     c_ = players[j].color
+                    n_ = players[j].name
 
-                    visible_balls[i].append(x_ + ' ' + y_ + ' ' + r_ + ' ' + c_)
+                    if players[j].r >= 30 * players[i].L:
+                        visible_balls[i].append(x_ + ' ' + y_ + ' ' + r_ + ' ' + c_ + ' ' + n_)
+                    else:
+                        visible_balls[i].append(x_ + ' ' + y_ + ' ' + r_ + ' ' + c_)
 
             # j видит i
-            if ((abs(dist_x) <= (players[j].w_vision) // 2 + players[i].r)
-                    and (abs(dist_y) <= (players[j].h_vision) // 2 + players[i].r)):
+            if (
+                    (abs(dist_x) <= (players[j].w_vision) // 2 + players[i].r)
+                    and
+                    (abs(dist_y) <= (players[j].h_vision) // 2 + players[i].r)
+            ):
                 # j может съесть i
                 if ((dist_x ** 2 + dist_y ** 2) ** 0.5 <= players[j].r and
                         players[j].r > 1.1 * players[i].r):
                     players[j].r = new_r(players[j].r, players[i].r)
-                    players[i].r, players[i].speed_x, players[i].speed_y = 0, 0, 0  # изменим радиус j игрока
+                    players[i].r, players[i].speed_x, players[i].speed_y = 0, 0, 0
 
-                if players[j].connection != None:
+                if players[j].conn != None:
                     # подготовим данные к добавлению в список видимых шаров
                     x_ = str(round(-dist_x / players[j].L))
                     y_ = str(round(-dist_y / players[j].L))
                     r_ = str(round(players[i].r / players[j].L))
                     c_ = players[i].color
+                    n_ = players[i].name
 
-                    visible_balls[j].append(x_ + ' ' + y_ + ' ' + r_ + ' ' + c_)
+                    if players[i].r >= 30 * players[j].L:
+                        visible_balls[j].append(x_ + ' ' + y_ + ' ' + r_ + ' ' + c_ + ' ' + n_)
+                    else:
+                        visible_balls[j].append(x_ + ' ' + y_ + ' ' + r_ + ' ' + c_)
 
     # формируем ответ каждому игроку
     otvets = ['' for i in range(len(players))]
     for i in range(len(players)):
-        r_ = str(round(players[i].r))
-        # x_ = str(round(players[i].x ))
-        # y_ = str(round(players[i].y / players[i].L))
-        # L_ = str(players[i].L)
+        r_ = str(round(players[i].r / players[i].L))
+        x_ = str(round(players[i].x / players[i].L))
+        y_ = str(round(players[i].y / players[i].L))
+        L_ = str(players[i].L)
 
-        visible_balls[i] = [r_] + visible_balls[i]
+        visible_balls[i] = [r_ + ' ' + x_ + ' ' + y_ + ' ' + L_] + visible_balls[i]
         otvets[i] = '<' + (','.join(visible_balls[i])) + '>'
 
     # отправляем новое состояние игрового поля
     for i in range(len(players)):
-        if players[i].connection != None:
+        if (players[i].conn != None) and (players[i].ready):
             try:
-                players[i].connection.send(otvets[i].encode())
+                players[i].conn.send(otvets[i].encode())
                 players[i].errors = 0
             except:
                 players[i].errors += 1
-                # print('Отключился игрок')
-    # time.sleep(0.01)
 
-    # чистим сервер от затупивших игроков
+    # чистим список от отвалившихся игроков
     for player in players:
-        if (player.errors == 500) or (player.r == 0):
-            if player.connection != None:
-                player.connection.close()
+        if player.r == 0:
+            if player.conn != None:
+                player.dead += 1
+            else:
+                player.dead += 300
+
+        if (player.errors == 500) or (player.dead == 300):
+            if player.conn != None:
+                player.conn.close()
             players.remove(player)
 
     # чистим список от съеденных микробов
@@ -309,20 +384,21 @@ while server_works:
         if m.r == 0:
             microbes.remove(m)
 
-    # нарисуем состояние комнаты
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            server_works = False
+    if not work_on_server:
+        # нарисуем состояние комнаты
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                server_works = False
 
-    screen.fill('black')
-    for player in players:
-        x = round(player.x * WIDTH_SERVER_WINDOW / WIDTH_ROOM)
-        y = round(player.y * HEIGHT_SERVER_WINDOW / HEIGHT_ROOM)
-        r = round(player.r * WIDTH_SERVER_WINDOW / WIDTH_ROOM)
-        c = colors[player.color]
+        screen.fill('BLACK')
+        for player in players:
+            x = round(player.x * WIDTH_SERVER_WINDOW / WIDTH_ROOM)
+            y = round(player.y * HEIGHT_SERVER_WINDOW / HEIGHT_ROOM)
+            r = round(player.r * WIDTH_SERVER_WINDOW / WIDTH_ROOM)
+            c = colours[player.color]
 
-        pygame.draw.circle(screen, c, (x, y), r)
-    pygame.display.update()
+            pygame.draw.circle(screen, c, (x, y), r)
+        pygame.display.update()
 
 pygame.quit()
 main_socket.close()
