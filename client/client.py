@@ -1,10 +1,8 @@
 import socket
 import pygame
 from PyQt5.QtGui import QFont
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QMessageBox, QVBoxLayout, QDialog, QLabel, QWidget, \
-    QLineEdit
+from PyQt5.QtWidgets import QApplication, QPushButton, QVBoxLayout, QLabel, QWidget, QLineEdit
 import sys
-
 
 class HelloWindow(QWidget):
     def __init__(self, parent=None):
@@ -23,8 +21,8 @@ class HelloWindow(QWidget):
         layout.addWidget(name_label)
         self.lineEdit = QLineEdit()
         self.lineEdit.setMaxLength(8)
-        font = self.lineEdit.font()  # lineedit current font
-        font.setPointSize(28)  # change it's size
+        font = self.lineEdit.font()
+        font.setPointSize(28)
         self.lineEdit.setFont(font)
         layout.addWidget(self.lineEdit)
         self.ok_button = QPushButton("Продолжить")
@@ -34,7 +32,6 @@ class HelloWindow(QWidget):
     def showLine(self):
         self.my_name = self.lineEdit.text()
         self.close()
-
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
@@ -51,7 +48,6 @@ colours = {'0': (255, 255, 0), '1': (255, 0, 0), '2': (0, 255, 0), '3': (0, 255,
 # my_name = 'Diana'
 GRID_COLOUR = (150, 150, 150)
 
-
 def find(s):
     otkr = None
     for i in range(len(s)):
@@ -63,13 +59,11 @@ def find(s):
             return res
     return ''
 
-
 def write_name(x, y, r, name):
     font = pygame.font.Font(None, r)
     text = font.render(name, True, (0, 0, 0))
     rect = text.get_rect(center=(x, y))
     screen.blit(text, rect)
-
 
 def draw_opponents(data):
     for i in range(len(data)):
@@ -82,7 +76,6 @@ def draw_opponents(data):
         pygame.draw.circle(screen, c, (x, y), r)
 
         if len(j) == 5: write_name(x, y, r, j[4])
-
 
 class Me():
     def __init__(self, data):
@@ -99,7 +92,6 @@ class Me():
                                (WIDTH_WINDOW // 2, HEIGHT_WINDOW // 2), self.r)
 
             write_name(WIDTH_WINDOW // 2, HEIGHT_WINDOW // 2, self.r - 20, str(my_name))
-
 
 class Grid():
     def __init__(self, screen):
@@ -127,40 +119,38 @@ class Grid():
                              [WIDTH_WINDOW, self.y + i * self.size],
                              1)
 
-
 v = (0, 0)
 old_v = (0, 0)
-
 
 class WindowLose(QWidget):
     def __init__(self):
         super().__init__()
 
-        # self.game = Game()
 
-    def show_lose_dialog(self):
-        lose_dialog = QDialog(self)
-        lose_dialog.setMinimumSize(200, 100)
-        lose_dialog.setFocus()
-
-        lose_dialog.setWindowTitle("Losing")
+        self.setMinimumSize(200, 100)
+        self.setFocus()
+        self.setWindowTitle("Losing")
         layout = QVBoxLayout()
-        lose_dialog.setLayout(layout)
+        self.setLayout(layout)
         lose_label = QLabel("Ой-ой, кажется тебя съели(")
         lose_label.setFont(QFont('Arial', 20))
         layout.addWidget(lose_label)
-        ok_button = QPushButton("Выход")
-        ok_button.setFont(QFont('Arial', 10))
-        ok_button.clicked.connect(lose_dialog.close)
-        layout.addWidget(ok_button)
-        lose_dialog.exec_()
+        self.ok_button = QPushButton("Выход")
+        self.ok_button.setFont(QFont('Arial', 10))
+        self.ok_button.clicked.connect(self.closeGame)
+        layout.addWidget(self.ok_button)
+        #sys.exit()
+        # self.restart_button = QPushButton("Переиграть")
+        # self.restart_button.setFont(QFont('Arial', 10))
+        # self.restart_button.clicked.connect(self.restart_button)
+        # layout.addWidget(self.restart_button)
+    def closeGame(self):
+        self.close()
         sys.exit()
-
 
 # создание окна игры
 pygame.init()
 screen = pygame.display.set_mode((WIDTH_WINDOW, HEIGHT_WINDOW))
-
 
 class Game():
     # подключение к серверу
@@ -227,14 +217,12 @@ class Game():
         if me.r == 0:
             app = QApplication(sys.argv)
             rules_window = WindowLose()
-            rules_window.show_lose_dialog()
-            sys.exit(app.exec_())
+            rules_window.show()
+            app.exec_()
+            #sys.exit()
 
         pygame.display.update()
 
     pygame.quit()
 
-    # app = QApplication(sys.argv)
-    # rules_window = WindowLose()
-    # rules_window.show_lose_dialog()
-    # sys.exit(app.exec_())
+

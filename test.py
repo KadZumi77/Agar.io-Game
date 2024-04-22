@@ -8,6 +8,7 @@ import sys
 class Main(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.my_name = ''
 
         self.setMinimumSize(450, 200)
         self.setFocus()
@@ -15,18 +16,19 @@ class Main(QWidget):
         self.setWindowTitle("WELCOME")
         layout = QVBoxLayout()
         self.setLayout(layout)
-        lose_label = QLabel("Введите свой никнейм:")
+        name_label = QLabel("Введите свой никнейм:")
 
-        lose_label.setFont(QFont('Arial', 20))
-        layout.addWidget(lose_label)
-        lineEdit = QLineEdit(self)
-        font = lineEdit.font()  # lineedit current font
+        name_label.setFont(QFont('Arial', 20))
+        layout.addWidget(name_label)
+        self.lineEdit = QLineEdit()
+        self.lineEdit.setMaxLength(8)
+        font = self.lineEdit.font()  # lineedit current font
         font.setPointSize(28)  # change it's size
-        lineEdit.setFont(font)
-        layout.addWidget(lineEdit)
-        ok_button = QPushButton("Продолжить")
-        layout.addWidget(ok_button)
-        ok_button.clicked.connect(self.close)
+        self.lineEdit.setFont(font)
+        layout.addWidget(self.lineEdit)
+        self.ok_button = QPushButton("Продолжить")
+        layout.addWidget(self.ok_button)
+        self.ok_button.clicked.connect(self.showLine)
         #name_dialog.destroy()
         #name_dialog.exec_()
         #sys.exit()

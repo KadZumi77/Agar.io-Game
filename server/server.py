@@ -8,8 +8,9 @@ from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import QWidget, QDialog, QVBoxLayout, QLabel, QPushButton, QApplication
 
 work_on_server = False
-server_ip = 'localhost'
-# server_ip = '123.123.123.123'
+# server_ip = 'localhost'
+server_ip = '0.0.0.0'
+
 
 FPS = 100
 WIDTH_ROOM, HEIGHT_ROOM = 4000, 4000
